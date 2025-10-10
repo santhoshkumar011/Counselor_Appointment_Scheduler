@@ -1,57 +1,69 @@
-// server.js or index.js
-import express from "express";
-import { PrismaClient } from "@prisma/client";
+// server.js
+import express from 'express';
+import cors from 'cors';
+import jwt from 'jsonwebtoken';
+import bodyParser from 'body-parser';
 
 const app = express();
-const prisma = new PrismaClient();
+const PORT = 5000;
+const SECRET_KEY = 'mysecretkey123';
 
-app.use(express.json());
+app.use(cors());
+app.use(bodyParser.json());
 
-// ✅ Route to get all users
-app.get("/users", async (req, res) => {
-  try {
-    const users = await prisma.user.findMany();
+// Demo users
+const users = [
+  { email: 'student@demo.edu', password: 'password123', role: 'student', name: 'Demo Student' },
+  { email: 'counselor@demo.edu', password: 'password123', role: 'counselor', name: 'Demo Counselor' }
+];
 
-    if (!users || users.length === 0) {
-      console.log("No users found");
-      return res.status(404).json({ message: "No users found" });
-    }
+// Login route
+app.post('/api/auth/login', (req, res) => {
+  const email = req.body.email.toLowerCase().trim();
+  const password = req.body.password;
+  const role = req.body.role.toLowerCase().trim();
 
-    console.log("Users fetched successfully", users);
-    return res.status(200).json(users);
-  } catch (err) {
-    console.error("Error fetching users:", err);
-    return res.status(500).json({ error: "Error in fetching the users" });
-  }
+  const user = users.find(u => 
+    u.email.toLowerCase() === email && 
+    u.password === password && 
+    u.role === role
+  );
+
+  if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+
+  const token = jwt.sign(
+    { email: user.email, role: user.role, name: user.name },
+    SECRET_KEY,
+    { expiresIn: '1h' }
+  );
+
+  res.json({ token, role: user.role, name: user.name });
 });
 
-app.post("/create", async (req, res) => {
-  const { username, email, password, mobile, vehicle_number } = req.body;
+// Verify JWT
+function verifyToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(401).json({ message: 'No token provided' });
 
-  if (!username || !email || !password || !mobile || !vehicle_number) {
-    return res.status(400).json({ message: "All fields are required" });
-  }
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'No token provided' });
 
-  try {
-    const newUser = await prisma.user.create({
-      data: {
-        username,
-        email,
-        password,
-        mobile,
-        vehicle_number,
-      },
-    });
+  jwt.verify(token, SECRET_KEY, (err, decoded) => {
+    if (err) return res.status(403).json({ message: 'Invalid token' });
+    req.user = decoded;
+    next();
+  });
+}
 
-    return res.status(201).json(newUser);
-  } catch (err) {
-    console.error("Error creating user:", err);
-    return res.status(500).json({ error: "Failed to create user" });
-  }
+// Example protected route
+app.get('/api/appointments', verifyToken, (req, res) => {
+  const appointments = [
+    { id: 1, title: 'Counseling Session', date: '2025-10-12', time: '10:00 AM' },
+    { id: 2, title: 'Career Guidance', date: '2025-10-15', time: '02:00 PM' }
+  ];
+  res.json({ user: req.user, appointments });
 });
 
-
-// Server start
-app.listen(3000, () => {
-  console.log("🚀 Server running on http://localhost:3000");
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
