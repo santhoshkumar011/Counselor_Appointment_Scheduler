@@ -8,16 +8,11 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+# The 'env' block holds configuration variables for the entire workflow
 env:
-  # Secrets used for Azure Login - Values are pulled from GitHub Secrets
-  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-  
   # Terraform configuration
   TF_WORKING_DIR: 'terraform'
-  
+
   # Docker and Kubernetes configuration
   ACR_NAME_OUTPUT: 'acr_login_server'
   AKS_NAME_OUTPUT: 'aks_cluster_name'
@@ -25,22 +20,23 @@ env:
   BACKEND_IMAGE_NAME: 'counselor-backend'
   BACKEND_APP_PATH: 'backend'
   K8S_MANIFESTS_PATH: 'k8s'
+  PROJECT_PREFIX: 'counselorapp' # MUST match the prefix in variables.tf
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 1. Log in to Azure using a single, explicit JSON credential object.
-    # This format is highly robust against formatting errors in GitHub Secrets.
+    # 1. Log in to Azure using the GitHub Secrets (most stable method)
     - name: Azure Login (FIXED FOR AUTHENTICATION)
       uses: azure/login@v1
       with:
+        # Pass credentials as a single JSON object for robust authentication
         creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
-        enable-AzPSSession: true 
+        enable-AzPSSession: true
         auth-type: SERVICE_PRINCIPAL
 
     # 2. PROVISION INFRASTRUCTURE (Terraform Init, Plan, and Apply)
@@ -48,12 +44,18 @@ jobs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.x
-        cli_config_credentials_token: ${{ env.ARM_CLIENT_ID }}
-        
+        # Authentication via Azure Login is automatically picked up by Terraform
+
     - name: Provision Azure Infrastructure (Terraform)
       id: tf_apply
+      # Set environment variables for Terraform to automatically find Azure creds
+      env:
+        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       run: |
-        # Initialize Terraform backend
+        # Initialize Terraform backend. -backend=false is used since we are not storing state remotely in this example.
         terraform init -backend=false
         
         # Apply the configuration to create RG, ACR, AKS, and AI Service
@@ -75,8 +77,8 @@ jobs:
       uses: azure/docker-login@v1
       with:
         login-server: ${{ env.ACR_LOGIN_SERVER }}
-        username: ${{ env.ARM_CLIENT_ID }}
-        password: ${{ env.ARM_CLIENT_SECRET }}
+        username: ${{ secrets.AZURE_CLIENT_ID }} # Use SPN as username
+        password: ${{ secrets.AZURE_CLIENT_SECRET }} # Use SPN secret as password
         
     - name: Build and Push Image
       run: |
@@ -86,7 +88,7 @@ jobs:
         # Push the image to the newly created ACR
         docker push $IMAGE_TAG
         echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-        
+      
     # 4. DEPLOY to AKS Cluster
     - name: Get K8s Credentials (Connect to AKS)
       uses: azure/aks-set-context@v1
