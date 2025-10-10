@@ -8,7 +8,11 @@ const AiChatbot = () => {
   ]);
   const [input, setInput] = useState("");
 
-  const apiKey = "Replace_your_Hugging_Face_API_Key_here"; // Use environment variable in production
+const apiKey = import.meta.env?.VITE_HF_API_KEY || process.env.REACT_APP_HF_API_KEY;
+
+if (!apiKey) {
+  console.error("HF API key is missing! Check your .env or Azure env vars.");
+}
 
   const sendMessage = async () => {
     if (!input) return;
