@@ -1,0 +1,107 @@
+name: Azure CI/CD - Terraform to AKS
+
+on:
+  # Triggers the workflow on pushes to the main branch
+  push:
+    branches:
+      - main
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  # Secrets used for Azure Login
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  
+  # Terraform configuration
+  TF_WORKING_DIR: 'terraform'
+  
+  # Docker and Kubernetes configuration
+  ACR_NAME_OUTPUT: 'acr_login_server'
+  AKS_NAME_OUTPUT: 'aks_cluster_name'
+  RG_NAME_OUTPUT: 'resource_group_name'
+  BACKEND_IMAGE_NAME: 'counselor-backend'
+  BACKEND_APP_PATH: 'backend'
+  K8S_MANIFESTS_PATH: 'k8s'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # 1. Log in to Azure using the GitHub Secrets
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: '{"clientId":"${{ env.ARM_CLIENT_ID }}","clientSecret":"${{ env.ARM_CLIENT_SECRET }}","subscriptionId":"${{ env.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ env.ARM_TENANT_ID }}"}'
+        enable-AzPSSession: true 
+        # This logs in securely using the Service Principal
+
+    # 2. PROVISION INFRASTRUCTURE (Terraform Init, Plan, and Apply)
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.x
+        cli_config_credentials_token: ${{ env.ARM_CLIENT_ID }}
+        
+    - name: Provision Azure Infrastructure (Terraform)
+      id: tf_apply
+      run: |
+        # Initialize Terraform backend
+        terraform init -backend=false
+        
+        # Apply the configuration to create RG, ACR, AKS, and AI Service
+        terraform apply -auto-approve
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    # 3. BUILD, TAG, and PUSH Docker Image to ACR
+    - name: Extract Terraform Outputs for Deployment
+      id: tf_output
+      run: |
+        # Get ACR login server and Resource Group Name from Terraform outputs
+        ACR_LOGIN_SERVER=$(terraform output -raw ${{ env.ACR_NAME_OUTPUT }})
+        RESOURCE_GROUP=$(terraform output -raw ${{ env.RG_NAME_OUTPUT }})
+        echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
+        echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      
+    - name: Docker Login to ACR
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.ACR_LOGIN_SERVER }}
+        username: ${{ env.ARM_CLIENT_ID }}
+        password: ${{ env.ARM_CLIENT_SECRET }}
+        
+    - name: Build and Push Image
+      run: |
+        IMAGE_TAG=${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+        # Build the image using the Dockerfile in the 'backend' folder
+        docker build -t $IMAGE_TAG ${{ env.BACKEND_APP_PATH }}
+        # Push the image to the newly created ACR
+        docker push $IMAGE_TAG
+        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+        
+    # 4. DEPLOY to AKS Cluster
+    - name: Get K8s Credentials (Connect to AKS)
+      uses: azure/aks-set-context@v1
+      with:
+        # Use the name of the AKS cluster created by Terraform
+        cluster-name: ${{ env.PROJECT_PREFIX }}-aks 
+        resource-group: ${{ env.RESOURCE_GROUP }}
+
+    - name: Deploy to Kubernetes
+      uses: azure/k8s-deploy@v4
+      with:
+        # Replace the image tag in the K8s manifest
+        images: |
+          ${{ env.IMAGE_TAG }}
+        # Use the deployment and service files you created
+        manifests: |
+          ${{ env.K8S_MANIFESTS_PATH }}/deployment.yaml
+          ${{ env.K8S_MANIFESTS_PATH }}/service.yaml
+        namespace: default
