@@ -8,7 +8,7 @@ const AiChatbot = () => {
   ]);
   const [input, setInput] = useState("");
 
-  const apiKey = "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"; // Use environment variable in production
+  const apiKey = "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"; // Use environment variable in production
 
   const sendMessage = async () => {
     if (!input) return;
