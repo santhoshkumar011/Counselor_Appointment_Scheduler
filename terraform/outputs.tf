@@ -1,0 +1,23 @@
+# ACR login server, needed by the CI/CD pipeline for image pushes
+output "acr_login_server" {
+  description = "The login server name of the Azure Container Registry."
+  value       = azurerm_container_registry.acr.login_server
+}
+
+# AKS cluster name, useful for CI/CD deployment context
+output "aks_cluster_name" {
+  description = "The name of the Azure Kubernetes Service cluster."
+  value       = azurerm_kubernetes_cluster.aks.name
+}
+
+# The endpoint for the AI Service, needed by the application code
+output "ai_endpoint" {
+  description = "The base URL/endpoint for the Azure AI Service."
+  value       = azurerm_cognitive_account.ai_service.endpoint
+}
+
+# Resource Group name
+output "resource_group_name" {
+  description = "The name of the resource group created."
+  value       = azurerm_resource_group.rg.name
+}

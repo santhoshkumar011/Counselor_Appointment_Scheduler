@@ -1,0 +1,14 @@
+Dependencies and configuration
+/node_modules
+/npm-debug.log
+.vscode/
+
+Build artifacts and caches
+/dist
+/build
+*.ts
+*.map
+
+OS files
+.DS_Store
+Thumbs.db
