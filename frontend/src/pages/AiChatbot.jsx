@@ -8,7 +8,7 @@ const AiChatbot = () => {
   ]);
   const [input, setInput] = useState("");
 
-  const apiKey = "***REMOVED***";
+const apiKey = process.env.REACT_APP_HF_TOKEN; // load from .env
 
   const sendMessage = async () => {
     if (!input) return;
