@@ -8,7 +8,7 @@ const AiChatbot = () => {
   ]);
   const [input, setInput] = useState("");
 
-const apiKey = process.env.REACT_APP_HF_TOKEN; // load from .env
+  const apiKey = "Replace_your_Hugging_Face_API_Key_here"; // Use environment variable in production
 
   const sendMessage = async () => {
     if (!input) return;
