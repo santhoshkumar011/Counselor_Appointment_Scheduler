@@ -1,7 +1,7 @@
 variable "location" {
   description = "The Azure region to deploy resources in."
   type        = string
-  default     = "eastus" # <-- Change this if you prefer a different region
+  default     = "centralindia" # <-- Change this if you prefer a different region
 }
 
 variable "project_prefix" {
