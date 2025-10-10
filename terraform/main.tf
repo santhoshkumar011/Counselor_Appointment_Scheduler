@@ -15,7 +15,9 @@ provider "azurerm" {
   features {}
 }
 
+ 
 
+ 
 # 2. Resource Group (RG) - The container for all resources
 resource "azurerm_resource_group" "rg" {
   name     = "${var.project_prefix}-rg"
