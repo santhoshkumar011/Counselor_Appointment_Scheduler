@@ -17,7 +17,7 @@ provider "azurerm" {
 
  
 
- 
+
 # 2. Resource Group (RG) - The container for all resources
 resource "azurerm_resource_group" "rg" {
   name     = "${var.project_prefix}-rg"
@@ -45,7 +45,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
   default_node_pool {
     name       = "default"
     node_count = var.aks_node_count
-    vm_size    = "Standard_DS2_v2"
+    vm_size    = "Standard_A2_v2"
   }
   
   identity {
@@ -67,7 +67,7 @@ resource "azurerm_cognitive_account" "ai_service" {
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   kind                = "OpenAI"
-  sku_name            = "S0" # Use S0 tier for production access
+  sku_name            = "F0" # Use S0 tier for production access
 }
 
 # Deploy a specific GenAI model (e.g., gpt-3.5-turbo)
