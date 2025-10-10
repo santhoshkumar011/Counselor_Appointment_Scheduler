@@ -11,10 +11,7 @@ output "aks_cluster_name" {
 }
 
 # The endpoint for the AI Service, needed by the application code
-output "ai_endpoint" {
-  description = "The base URL/endpoint for the Azure AI Service."
-  value       = azurerm_cognitive_account.ai_service.endpoint
-}
+
 
 # Resource Group name
 output "resource_group_name" {

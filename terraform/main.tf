@@ -54,32 +54,10 @@ resource "azurerm_kubernetes_cluster" "aks" {
 }
 
 # Attach ACR to AKS for easy pulling of images
-resource "azurerm_role_assignment" "acr_pull_assignment" {
-  scope                = azurerm_container_registry.acr.id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
-}
 
 
 # 5. Azure AI Service (Azure OpenAI Example) - For GenAI Integration
-resource "azurerm_cognitive_account" "ai_service" {
-  name                = "${var.project_prefix}-ai"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  kind                = "OpenAI"
-  sku_name            = "F0" # Use S0 tier for production access
-}
+
 
 # Deploy a specific GenAI model (e.g., gpt-3.5-turbo)
-resource "azurerm_cognitive_deployment" "ai_model" {
-  name                 = "counselor-model" # Deployment name used in the API call
-  cognitive_account_id = azurerm_cognitive_account.ai_service.id
-  model {
-    format  = "OpenAI"
-    name    = var.ai_model_name
-    version = "0301" # Specific version
-  }
-  scale {
-    type = "Standard"
-  }
-}
+
