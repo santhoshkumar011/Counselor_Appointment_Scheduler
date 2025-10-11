@@ -8,38 +8,29 @@ terraform {
   }
 }
 
-# Note: Authentication is typically handled by the CI/CD pipeline 
-# using the Service Principal (AZURE_CLIENT_ID, etc.)
-
 provider "azurerm" {
   features {}
 }
 
- 
-
-
-# 2. Resource Group (RG) - The container for all resources
-resource "azurerm_resource_group" "rg" {
-  name     = "${var.project_prefix}-rg"
-  location = var.location
+# 2. Use existing Resource Group (RG) instead of creating a new one
+data "azurerm_resource_group" "existing" {
+  name = "${var.project_prefix}-rg"  # Name of your existing RG
 }
-
 
 # 3. Azure Container Registry (ACR) - For storing Docker images
 resource "azurerm_container_registry" "acr" {
   name                = "${var.project_prefix}acr"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.existing.name
+  location            = data.azurerm_resource_group.existing.location
   sku                 = var.acr_sku
   admin_enabled       = true # Enable admin user for CI/CD authentication ease
 }
 
-
 # 4. Azure Kubernetes Service (AKS) - The deployment target
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = "${var.project_prefix}-aks"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.existing.location
+  resource_group_name = data.azurerm_resource_group.existing.name
   dns_prefix          = "${var.project_prefix}-dns"
 
   default_node_pool {
@@ -47,17 +38,14 @@ resource "azurerm_kubernetes_cluster" "aks" {
     node_count = var.aks_node_count
     vm_size    = "Standard_A2_v2"
   }
-  
+
   identity {
     type = "SystemAssigned"
   }
+
+  # Attach ACR to AKS for easy pulling of images
+  depends_on = [azurerm_container_registry.acr]
 }
 
-# Attach ACR to AKS for easy pulling of images
-
-
-# 5. Azure AI Service (Azure OpenAI Example) - For GenAI Integration
-
-
-# Deploy a specific GenAI model (e.g., gpt-3.5-turbo)
-
+# 5. Optional: Azure AI Service (Azure OpenAI Example) - For GenAI Integration
+# You can configure this later if needed
