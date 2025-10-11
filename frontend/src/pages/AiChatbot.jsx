@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { Send, X } from "lucide-react";
 
@@ -7,9 +7,17 @@ const AiChatbot = () => {
     { sender: "bot", text: "Hi! I’m your counselor assistant. How can I help you today?" },
   ]);
   const [input, setInput] = useState("");
+  const chatEndRef = useRef(null); // 👈 new ref
 
-  // ⚡ Hardcoded backend URL
   const BACKEND_URL = "http://localhost:5001";
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom(); // scroll whenever messages change
+  }, [messages]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -46,20 +54,21 @@ const AiChatbot = () => {
       </div>
 
       {/* Chat messages */}
-      <div className="p-4 flex-1 overflow-y-auto h-64 space-y-3">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`p-2 rounded-xl ${
-              msg.sender === "bot"
-                ? "bg-gray-100 text-gray-900 self-start"
-                : "bg-blue-500 text-white self-end"
-            }`}
-          >
-            {msg.text}
-          </div>
-        ))}
-      </div>
+<div className="p-4 flex-1 overflow-y-auto max-h-[400px] space-y-3">
+  {messages.map((msg, i) => (
+    <div
+      key={i}
+      className={`p-2 rounded-xl break-words ${
+        msg.sender === "bot"
+          ? "bg-gray-100 text-gray-900 self-start"
+          : "bg-blue-500 text-white self-end"
+      }`}
+    >
+      {msg.text}
+    </div>
+  ))}
+  <div ref={chatEndRef} />
+</div>
 
       {/* Input */}
       <div className="p-3 border-t border-gray-200 flex items-center space-x-2">
