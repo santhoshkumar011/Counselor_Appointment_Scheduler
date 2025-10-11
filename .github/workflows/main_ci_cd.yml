@@ -1,110 +1,95 @@
 name: Azure CI/CD - Terraform to AKS
 
 on:
-  # Triggers the workflow on pushes to the main branch
   push:
     branches:
       - main
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# OIDC REQUIRES permission setup at the workflow level
+# Required permissions for OIDC to work
 permissions:
-  id-token: write # Required for OpenID Connect (OIDC) authentication
-  contents: read # Required to check out code
+  id-token: write     # Required for OIDC authentication
+  contents: read      # Required to checkout repo
+  actions: read       # Recommended for workflow access
 
-# The 'env' block holds configuration variables for the entire workflow
 env:
-  # Terraform configuration
   TF_WORKING_DIR: 'terraform'
-
-  # Docker and Kubernetes configuration
   ACR_NAME_OUTPUT: 'acr_login_server'
   AKS_NAME_OUTPUT: 'aks_cluster_name'
   RG_NAME_OUTPUT: 'resource_group_name'
   BACKEND_IMAGE_NAME: 'counselor-backend'
   BACKEND_APP_PATH: 'backend'
   K8S_MANIFESTS_PATH: 'k8s'
-  PROJECT_PREFIX: 'counselorapp' # MUST match the prefix in variables.tf
+  PROJECT_PREFIX: 'counselorapp'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      # 1️⃣ Checkout Code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    # 1. Log in to Azure using OpenID Connect (OIDC)
-    - name: Azure Login (OIDC Authentication)
-      uses: azure/login@v1
-      with:
-        # Client ID of the App Registration with Federated Credentials set up
-        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        enable-AzPSSession: true
-        # auth-type is automatically OIDC when using client-id/tenant-id/subscription-id inputs
+      # 2️⃣ Azure Login using OIDC (no secrets.json needed)
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-    # 2. PROVISION INFRASTRUCTURE (Terraform Init, Plan, and Apply)
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.x
+      # 3️⃣ Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
 
-    - name: Provision Azure Infrastructure (Terraform)
-      id: tf_apply
-      # Terraform automatically picks up the login from the previous step
-      run: |
-        # Initialize Terraform backend. -backend=false is used since we are not storing state remotely in this example.
-        terraform init -backend=false
-        
-        # Apply the configuration to create RG, ACR, AKS, and AI Service
-        terraform apply -auto-approve
-      working-directory: ${{ env.TF_WORKING_DIR }}
+      # 4️⃣ Terraform Init + Apply
+      - name: Provision Azure Infrastructure
+        id: tf_apply
+        run: |
+          terraform init -backend=false
+          terraform apply -auto-approve
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
-    # 3. BUILD, TAG, and PUSH Docker Image to ACR
-    - name: Extract Terraform Outputs for Deployment
-      id: tf_output
-      run: |
-        # Get ACR login server and Resource Group Name from Terraform outputs
-        ACR_LOGIN_SERVER=$(terraform output -raw ${{ env.ACR_NAME_OUTPUT }})
-        RESOURCE_GROUP=$(terraform output -raw ${{ env.RG_NAME_OUTPUT }})
-        echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
-        echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
-      working-directory: ${{ env.TF_WORKING_DIR }}
-      
-    - name: Docker Login to ACR (ACR uses Azure Login identity)
-      uses: azure/docker-login@v1
-      with:
-        login-server: ${{ env.ACR_LOGIN_SERVER }}
-        # OIDC login is now implicitly used for Docker as well
-        
-    - name: Build and Push Image
-      run: |
-        IMAGE_TAG=${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
-        # Build the image using the Dockerfile in the 'backend' folder
-        docker build -t $IMAGE_TAG ${{ env.BACKEND_APP_PATH }}
-        # Push the image to the newly created ACR
-        docker push $IMAGE_TAG
-        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-      
-    # 4. DEPLOY to AKS Cluster
-    - name: Get K8s Credentials (Connect to AKS)
-      uses: azure/aks-set-context@v1
-      with:
-        # Use the name of the AKS cluster created by Terraform
-        cluster-name: ${{ env.PROJECT_PREFIX }}-aks 
-        resource-group: ${{ env.RESOURCE_GROUP }}
+      # 5️⃣ Extract Terraform Outputs
+      - name: Extract Terraform Outputs
+        id: tf_output
+        run: |
+          echo "ACR_LOGIN_SERVER=$(terraform output -raw ${{ env.ACR_NAME_OUTPUT }})" >> $GITHUB_ENV
+          echo "RESOURCE_GROUP=$(terraform output -raw ${{ env.RG_NAME_OUTPUT }})" >> $GITHUB_ENV
+          echo "AKS_CLUSTER=$(terraform output -raw ${{ env.AKS_NAME_OUTPUT }})" >> $GITHUB_ENV
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
-    - name: Deploy to Kubernetes
-      uses: azure/k8s-deploy@v4
-      with:
-        # Replace the image tag in the K8s manifest
-        images: |
-          ${{ env.IMAGE_TAG }}
-        # Use the deployment and service files you created
-        manifests: |
-          ${{ env.K8S_MANIFESTS_PATH }}/deployment.yaml
-          ${{ env.K8S_MANIFESTS_PATH }}/service.yaml
-        namespace: default
+      # 6️⃣ Login to Azure Container Registry via OIDC (NO USERNAME/PASSWORD)
+      - name: Docker Login to ACR (OIDC)
+        run: |
+          az acr login --name ${{ env.ACR_LOGIN_SERVER }}
+
+      # 7️⃣ Build & Push Docker Image
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_TAG=${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+          echo "Building image: $IMAGE_TAG"
+          docker build -t $IMAGE_TAG ${{ env.BACKEND_APP_PATH }}
+          docker push $IMAGE_TAG
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      # 8️⃣ Set AKS Context using OIDC Identity
+      - name: Set AKS Context
+        uses: azure/aks-set-context@v3
+        with:
+          cluster-name: ${{ env.AKS_CLUSTER }}
+          resource-group: ${{ env.RESOURCE_GROUP }}
+
+      # 9️⃣ Deploy to AKS using Kubernetes manifests
+      - name: Deploy to AKS
+        uses: azure/k8s-deploy@v5
+        with:
+          manifests: |
+            ${{ env.K8S_MANIFESTS_PATH }}/deployment.yaml
+            ${{ env.K8S_MANIFESTS_PATH }}/service.yaml
+          images: |
+            ${{ env.IMAGE_TAG }}
+          namespace: default

@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: counselor-backend-deployment
+  labels:
+    app: counselor-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: counselor-backend
+  template:
+    metadata:
+      labels:
+        app: counselor-backend
+    spec:
+      containers:
+        - name: counselor-backend
+          image: counselorappacr.azurecr.io/counselor-backend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: "production"
