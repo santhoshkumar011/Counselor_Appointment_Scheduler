@@ -15,6 +15,5 @@ output "aks_cluster_name" {
 
 # Resource Group name
 output "resource_group_name" {
-  description = "The name of the resource group created."
-  value       = azurerm_resource_group.rg.name
+  value = data.azurerm_resource_group.existing.name
 }
