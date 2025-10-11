@@ -7,7 +7,8 @@ variable "project_prefix" {
 variable "location" {
   description = "Azure region"
   type        = string
-  default     = "eastus"
+ default = "centralindia"
+
 }
 
 variable "acr_sku" {
