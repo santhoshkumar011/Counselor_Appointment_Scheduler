@@ -4,17 +4,17 @@ FROM node:20
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package.json and package-lock.json first
 COPY package*.json ./
 
-# Install all dependencies (including devDependencies for Prisma)
+# Install dependencies (including devDependencies for Prisma)
 RUN npm install
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Copy the rest of the code
+# Copy the rest of the code (including prisma/schema.prisma)
 COPY . .
+
+# Generate Prisma client (now schema exists)
+RUN npx prisma generate
 
 # Expose the port your server runs on
 EXPOSE 3000
