@@ -1,19 +1,20 @@
-# ACR login server, needed by the CI/CD pipeline for image pushes
-output "acr_login_server" {
-  description = "The login server name of the Azure Container Registry."
-  value       = azurerm_container_registry.acr.login_server
-}
-
-# AKS cluster name, useful for CI/CD deployment context
-output "aks_cluster_name" {
-  description = "The name of the Azure Kubernetes Service cluster."
-  value       = azurerm_kubernetes_cluster.aks.name
-}
-
-# The endpoint for the AI Service, needed by the application code
-
-
-# Resource Group name
+# Resource Group Name
 output "resource_group_name" {
-  value = data.azurerm_resource_group.existing.name
+  value = azurerm_resource_group.rg.name
+}
+
+# ACR Login Server
+output "acr_login_server" {
+  value = azurerm_container_registry.acr.login_server
+}
+
+# AKS Cluster Name
+output "aks_cluster_name" {
+  value = azurerm_kubernetes_cluster.aks.name
+}
+
+# AKS Cluster Kube Config (optional)
+output "aks_kube_config" {
+  value     = azurerm_kubernetes_cluster.aks.kube_config_raw
+  sensitive = true
 }
