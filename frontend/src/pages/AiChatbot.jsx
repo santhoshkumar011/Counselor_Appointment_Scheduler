@@ -1,60 +1,36 @@
-import React, { useState } from "react"; 
+import React, { useState } from "react";
 import axios from "axios";
 import { Send, X } from "lucide-react";
 
 const AiChatbot = () => {
   const [messages, setMessages] = useState([
-    { sender: "bot", text: "Hi! I’m your counselor assistant. How can I help you today?" }
+    { sender: "bot", text: "Hi! I’m your counselor assistant. How can I help you today?" },
   ]);
   const [input, setInput] = useState("");
 
-const apiKey = import.meta.env?.VITE_HF_API_KEY || process.env.REACT_APP_HF_API_KEY;
-
-if (!apiKey) {
-  console.error("HF API key is missing! Check your .env or Azure env vars.");
-}
+  // ⚡ Hardcoded backend URL
+  const BACKEND_URL = "http://localhost:5001";
 
   const sendMessage = async () => {
-    if (!input) return;
+    if (!input.trim()) return;
 
     const userMessage = { sender: "user", text: input };
-    setMessages([...messages, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
 
     try {
-      const response = await axios.post(
-        "https://router.huggingface.co/v1/chat/completions",
-        {
-          model: "zai-org/GLM-4.6:novita",
-          messages: [
-            {
-              role: "system",
-              content: "You are a friendly assistant for a student dashboard. Answer clearly and politely."
-            },
-            {
-              role: "user",
-              content: input
-            }
-          ]
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
+      const response = await axios.post(`${BACKEND_URL}/api/chat`, { message: input });
 
       const botMessage = {
         sender: "bot",
-        text: response.data?.choices[0]?.message?.content || "Sorry, I couldn't understand that."
+        text: response.data.reply || "Sorry, I couldn’t understand that.",
       };
-      setMessages(prev => [...prev, botMessage]);
+      setMessages((prev) => [...prev, botMessage]);
     } catch (err) {
       console.error(err);
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
-        { sender: "bot", text: "Oops! Something went wrong with the AI." }
+        { sender: "bot", text: "Oops! Something went wrong with the AI." },
       ]);
     }
   };
@@ -64,7 +40,9 @@ if (!apiKey) {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 p-4 flex justify-between items-center">
         <h2 className="text-white font-bold">CounselBot</h2>
-        <button className="text-white hover:bg-white/20 p-1 rounded-full"><X className="w-5 h-5" /></button>
+        <button className="text-white hover:bg-white/20 p-1 rounded-full">
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Chat messages */}
@@ -72,7 +50,11 @@ if (!apiKey) {
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`p-2 rounded-xl ${msg.sender === "bot" ? "bg-gray-100 text-gray-900 self-start" : "bg-blue-500 text-white self-end"}`}
+            className={`p-2 rounded-xl ${
+              msg.sender === "bot"
+                ? "bg-gray-100 text-gray-900 self-start"
+                : "bg-blue-500 text-white self-end"
+            }`}
           >
             {msg.text}
           </div>
