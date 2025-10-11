@@ -6,11 +6,10 @@ on:
       - main
   workflow_dispatch:
 
-# Required permissions for OIDC to work
 permissions:
-  id-token: write     # Required for OIDC authentication
-  contents: read      # Required to checkout repo
-  actions: read       # Recommended for workflow access
+  id-token: write
+  contents: read
+  actions: read
 
 env:
   TF_WORKING_DIR: 'terraform'
@@ -25,13 +24,10 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # 1️⃣ Checkout Code
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Azure Login using OIDC (no secrets.json needed)
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
@@ -39,13 +35,11 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # 3️⃣ Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
-      # 4️⃣ Terraform Init + Apply
       - name: Provision Azure Infrastructure
         id: tf_apply
         run: |
@@ -53,7 +47,6 @@ jobs:
           terraform apply -auto-approve
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-      # 5️⃣ Extract Terraform Outputs
       - name: Extract Terraform Outputs
         id: tf_output
         run: |
@@ -62,12 +55,10 @@ jobs:
           echo "AKS_CLUSTER=$(terraform output -raw ${{ env.AKS_NAME_OUTPUT }})" >> $GITHUB_ENV
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-      # 6️⃣ Login to Azure Container Registry via OIDC (NO USERNAME/PASSWORD)
       - name: Docker Login to ACR (OIDC)
         run: |
           az acr login --name ${{ env.ACR_LOGIN_SERVER }}
 
-      # 7️⃣ Build & Push Docker Image
       - name: Build and Push Docker Image
         run: |
           IMAGE_TAG=${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
@@ -76,14 +67,12 @@ jobs:
           docker push $IMAGE_TAG
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
-      # 8️⃣ Set AKS Context using OIDC Identity
       - name: Set AKS Context
         uses: azure/aks-set-context@v3
         with:
           cluster-name: ${{ env.AKS_CLUSTER }}
           resource-group: ${{ env.RESOURCE_GROUP }}
 
-      # 9️⃣ Deploy to AKS using Kubernetes manifests
       - name: Deploy to AKS
         uses: azure/k8s-deploy@v5
         with:

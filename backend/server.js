@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import bodyParser from 'body-parser';
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 3000; // Use 3000 to match Docker/K8s
 const SECRET_KEY = 'mysecretkey123';
 
 app.use(cors());
@@ -23,9 +23,9 @@ app.post('/api/auth/login', (req, res) => {
   const password = req.body.password;
   const role = req.body.role.toLowerCase().trim();
 
-  const user = users.find(u => 
-    u.email.toLowerCase() === email && 
-    u.password === password && 
+  const user = users.find(u =>
+    u.email.toLowerCase() === email &&
+    u.password === password &&
     u.role === role
   );
 
@@ -40,7 +40,7 @@ app.post('/api/auth/login', (req, res) => {
   res.json({ token, role: user.role, name: user.name });
 });
 
-// Verify JWT
+// Verify JWT middleware
 function verifyToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ message: 'No token provided' });
@@ -55,7 +55,7 @@ function verifyToken(req, res, next) {
   });
 }
 
-// Example protected route
+// Protected route
 app.get('/api/appointments', verifyToken, (req, res) => {
   const appointments = [
     { id: 1, title: 'Counseling Session', date: '2025-10-12', time: '10:00 AM' },
@@ -64,6 +64,10 @@ app.get('/api/appointments', verifyToken, (req, res) => {
   res.json({ user: req.user, appointments });
 });
 
+app.get('/', (req, res) => {
+  res.send('Backend is running!');
+});
+
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
