@@ -7,9 +7,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
-  contents: read
+  id-token: write        # Required for azure/login
+  contents: read         # Required for actions/checkout
   actions: read
+  security-events: write # <-- ADDED: Required for CodeQL to upload results
 
 env:
   TF_WORKING_DIR: 'terraform'
@@ -27,6 +28,21 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      # --- START: NEW STEPS FOR PRIORITY #1 (CODEQL) ---
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          # IMPORTANT: Change 'java' if your backend is not Java
+          # (e.g., javascript, python, go, csharp)
+          languages: java
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+      # --- END: NEW STEPS FOR PRIORITY #1 ---
 
       - name: Azure Login (service principal)
         uses: azure/login@v2
@@ -53,7 +69,7 @@ jobs:
           echo "AKS_CLUSTER=$(terraform output -raw ${{ env.AKS_NAME_OUTPUT }})" >> $GITHUB_ENV
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-      - name: Docker Login to ACR (OIDC)
+      - name: Docker Login to ACR
         run: |
           az acr login --name ${{ env.ACR_LOGIN_SERVER }}
 
