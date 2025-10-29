@@ -10,7 +10,7 @@ permissions:
   id-token: write        # Required for azure/login
   contents: read         # Required for actions/checkout
   actions: read
-  security-events: write # <-- ADDED: Required for CodeQL to upload results
+  security-events: write # Required for CodeQL to upload results
 
 env:
   TF_WORKING_DIR: 'terraform'
@@ -29,20 +29,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # --- START: NEW STEPS FOR PRIORITY #1 (CODEQL) ---
+      # --- START: PRIORITY #1 (CODEQL) ---
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          # IMPORTANT: Change 'java' if your backend is not Java
-          # (e.g., javascript, python, go, csharp)
-          languages: java
+          # Changed to 'javascript' to match your project
+          languages: javascript
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+      - name: Install Node.js dependencies
+        # Runs 'npm install' inside your 'backend' folder
+        run: npm install --prefix ${{ env.BACKEND_APP_PATH }}
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
-      # --- END: NEW STEPS FOR PRIORITY #1 ---
+      # --- END: PRIORITY #1 ---
 
       - name: Azure Login (service principal)
         uses: azure/login@v2
