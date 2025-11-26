@@ -3,9 +3,10 @@ kind: Service
 metadata:
   name: counselor-backend-service
 spec:
-  type: ClusterIP
+  type: LoadBalancer # Creates an Azure Public IP and Load Balancer
   selector:
-    app: counselor-backend
+    app: counselor-backend # Must match the label in your Deployment YAML
   ports:
-    - port: 3000
-      targetPort: 3000
+    - protocol: TCP
+      port: 80         # Port the Load Balancer exposes (External Access)
+      targetPort: 3000 # Port the container is listening on (Internal Container Port)

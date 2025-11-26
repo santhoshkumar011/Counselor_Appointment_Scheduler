@@ -14,12 +14,15 @@ spec:
     spec:
       containers:
         - name: counselor-backend
-          image: counselorappacr.azurecr.io/counselor-backend:latest
+          # CRITICAL CHANGE: Use a placeholder or old image. The CI/CD action will overwrite this.
+          image: placeholder-acr.azurecr.io/counselor-backend:latest 
           ports:
             - containerPort: 3000
           env:
             - name: NODE_ENV
               value: "production"
+          
+          # Health Probes (Excellent addition for resilience)
           readinessProbe:
             httpGet:
               path: /

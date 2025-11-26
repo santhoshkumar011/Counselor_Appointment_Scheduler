@@ -1,24 +1,23 @@
 variable "project_prefix" {
-  description = "Prefix for all resources"
+  description = "A prefix used for naming all resources."
   type        = string
   default     = "counselorapp"
 }
 
 variable "location" {
-  description = "Azure region"
+  description = "The Azure region for all resources."
   type        = string
- default = "centralindia"
-
+  default     = "East US"
 }
 
 variable "acr_sku" {
-  description = "SKU for Azure Container Registry"
+  description = "The SKU for the Azure Container Registry (Basic, Standard, Premium)."
   type        = string
   default     = "Basic"
 }
 
 variable "aks_node_count" {
-  description = "Number of AKS nodes"
+  description = "The number of nodes in the default AKS node pool."
   type        = number
-  default     = 1
+  default     = 2
 }
