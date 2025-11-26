@@ -3,7 +3,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      # 🚨 FIX: Updated version to ensure acr_integration block is supported.
+      # Version updated to ensure compatibility with all syntax
       version = "~> 3.80" 
     }
     random = {
@@ -34,7 +34,6 @@ resource "azurerm_container_registry" "acr" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   sku                 = var.acr_sku
-  # Using managed identity for AKS pull, so admin is disabled (secure)
   admin_enabled       = false 
 }
 
@@ -61,15 +60,23 @@ resource "azurerm_kubernetes_cluster" "aks" {
     type = "SystemAssigned"
   }
 
-  # 🛑 The previously unsupported block. Now works with updated provider version.
-  # CRITICAL: Automatically grant AKS permission to pull images from the ACR
-  acr_integration {
-    acr_id  = azurerm_container_registry.acr.id
-    enabled = true
-  }
+  # 🛑 IMPORTANT: acr_integration block has been permanently REMOVED to fix the error.
 }
 
 # Random suffix for AKS uniqueness
 resource "random_id" "aks_suffix" {
   byte_length = 2
+}
+
+# --- CRITICAL FIX: Explicit Role Assignment for ACR-AKS Integration ---
+# This resource explicitly grants the AKS Kubelet Identity AcrPull permissions on the ACR.
+resource "azurerm_role_assignment" "aks_acrpull" {
+  # Scope is the ACR resource ID
+  scope                = azurerm_container_registry.acr.id
+  # Role needed to pull images
+  role_definition_name = "AcrPull" 
+  # Principal is the AKS Kubelet Identity (System Assigned)
+  principal_id         = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
+  # Ensure AKS is created before trying to assign the role to its identity
+  depends_on           = [azurerm_kubernetes_cluster.aks]
 }
