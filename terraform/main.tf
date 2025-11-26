@@ -45,7 +45,8 @@ resource "azurerm_kubernetes_cluster" "aks" {
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   dns_prefix          = "${var.project_prefix}-dns-${random_id.aks_suffix.hex}"
-  kubernetes_version  = "1.28"
+  # 🛑 FIX: Updated Kubernetes version to 1.29 to bypass LTS restriction
+  kubernetes_version  = "1.29" 
 
   default_node_pool {
     name       = "default"
@@ -62,7 +63,7 @@ resource "random_id" "aks_suffix" {
   byte_length = 2
 }
 
-# 🛑 FIX: ACR-AKS Integration via Role Assignment (Solves the syntax error)
+# ACR-AKS Integration via Role Assignment
 resource "azurerm_role_assignment" "aks_acrpull" {
   scope                = azurerm_container_registry.acr.id
   role_definition_name = "AcrPull" 
