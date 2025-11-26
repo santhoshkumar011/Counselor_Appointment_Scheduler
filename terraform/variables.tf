@@ -7,7 +7,8 @@ variable "project_prefix" {
 variable "location" {
   description = "The Azure region for all resources."
   type        = string
-  default     = "East US"
+  # 🛑 FIX: Changed location to one permitted by Azure Policy.
+  default     = "centralindia" 
 }
 
 variable "acr_sku" {

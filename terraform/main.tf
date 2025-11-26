@@ -3,7 +3,6 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      # Version updated to ensure compatibility with all syntax
       version = "~> 3.80" 
     }
     random = {
@@ -17,18 +16,17 @@ provider "azurerm" {
   features {}
 }
 
-# 2. Resource Group (RG) - The container for all resources
+# 2. Resource Group (RG)
 resource "azurerm_resource_group" "rg" {
   name     = "${var.project_prefix}-rg-${random_id.rg_suffix.hex}"
   location = var.location
 }
 
-# Random suffix for uniqueness
 resource "random_id" "rg_suffix" {
   byte_length = 2
 }
 
-# 3. Azure Container Registry (ACR) - For storing Docker images
+# 3. Azure Container Registry (ACR)
 resource "azurerm_container_registry" "acr" {
   name                = "${lower(var.project_prefix)}acr${random_id.acr_suffix.hex}"
   resource_group_name = azurerm_resource_group.rg.name
@@ -37,18 +35,17 @@ resource "azurerm_container_registry" "acr" {
   admin_enabled       = false 
 }
 
-# Random suffix for ACR uniqueness
 resource "random_id" "acr_suffix" {
   byte_length = 2
 }
 
-# 4. Azure Kubernetes Service (AKS) - The deployment target
+# 4. Azure Kubernetes Service (AKS)
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = "${var.project_prefix}-aks-${random_id.aks_suffix.hex}"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   dns_prefix          = "${var.project_prefix}-dns-${random_id.aks_suffix.hex}"
-  kubernetes_version  = "1.28" # Using a stable version
+  kubernetes_version  = "1.28"
 
   default_node_pool {
     name       = "default"
@@ -59,24 +56,16 @@ resource "azurerm_kubernetes_cluster" "aks" {
   identity {
     type = "SystemAssigned"
   }
-
-  # 🛑 IMPORTANT: acr_integration block has been permanently REMOVED to fix the error.
 }
 
-# Random suffix for AKS uniqueness
 resource "random_id" "aks_suffix" {
   byte_length = 2
 }
 
-# --- CRITICAL FIX: Explicit Role Assignment for ACR-AKS Integration ---
-# This resource explicitly grants the AKS Kubelet Identity AcrPull permissions on the ACR.
+# 🛑 FIX: ACR-AKS Integration via Role Assignment (Solves the syntax error)
 resource "azurerm_role_assignment" "aks_acrpull" {
-  # Scope is the ACR resource ID
   scope                = azurerm_container_registry.acr.id
-  # Role needed to pull images
   role_definition_name = "AcrPull" 
-  # Principal is the AKS Kubelet Identity (System Assigned)
   principal_id         = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
-  # Ensure AKS is created before trying to assign the role to its identity
   depends_on           = [azurerm_kubernetes_cluster.aks]
 }
