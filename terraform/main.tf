@@ -19,7 +19,7 @@ provider "azurerm" {
 # 2. Resource Group (RG)
 resource "azurerm_resource_group" "rg" {
   name     = "${var.project_prefix}-rg-${random_id.rg_suffix.hex}"
-  location = var.location
+  location = var.location # Set to centralindia in variables.tf
 }
 
 resource "random_id" "rg_suffix" {
@@ -45,8 +45,8 @@ resource "azurerm_kubernetes_cluster" "aks" {
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   dns_prefix          = "${var.project_prefix}-dns-${random_id.aks_suffix.hex}"
-  # 🛑 FIX: Updated Kubernetes version to 1.29 to bypass LTS restriction
-  kubernetes_version  = "1.29" 
+  # 🛑 FINAL FIX: Updated Kubernetes version to 1.30 to ensure it is not LTS
+  kubernetes_version  = "1.30" 
 
   default_node_pool {
     name       = "default"
