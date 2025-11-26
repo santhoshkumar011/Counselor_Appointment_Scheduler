@@ -19,7 +19,7 @@ provider "azurerm" {
 # 2. Resource Group (RG)
 resource "azurerm_resource_group" "rg" {
   name     = "${var.project_prefix}-rg-${random_id.rg_suffix.hex}"
-  location = var.location # defaults to "centralindia" in your variables.tf
+  location = var.location # defaults to "centralindia"
 }
 
 resource "random_id" "rg_suffix" {
@@ -46,13 +46,15 @@ resource "azurerm_kubernetes_cluster" "aks" {
   resource_group_name = azurerm_resource_group.rg.name
   dns_prefix          = "${var.project_prefix}-dns-${random_id.aks_suffix.hex}"
   
-  # 🛑 FIX: Line REMOVED. Azure will now pick the valid default version.
-  # kubernetes_version  = "1.30" 
+  # Note: kubernetes_version is intentionally omitted so Azure picks the valid default.
 
   default_node_pool {
     name       = "default"
     node_count = var.aks_node_count
-    vm_size    = "Standard_DS2_v2"
+    
+    # 🛑 FIX: Changed from 'Standard_DS2_v2' to 'Standard_A2_v2'
+    # This size is explicitly listed as allowed in your error message.
+    vm_size    = "Standard_A2_v2" 
   }
 
   identity {
